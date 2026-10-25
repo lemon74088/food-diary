@@ -45,7 +45,57 @@ function toDataObject(){return Promise.all([all('meals'),all('events')]).then(([
 function downloadBlob(blob,name){let url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000)}
 function openBackup(){showModal('資料備份與還原',`<div class="reportbox"><h3>匯出完整備份</h3><p>包含飲食文字、身體事件和照片。請把備份檔保存在安全的位置。</p><button class="primary" style="width:100%" id="exportBackup">匯出完整備份（JSON）</button></div><div class="reportbox"><h3>還原備份</h3><p>選擇先前匯出的 JSON 檔。匯入會合併資料；相同記錄 ID 將以備份內容更新。</p><label class="secondary" style="display:block;text-align:center;cursor:pointer">選擇備份檔<input id="importBackup" type="file" accept=".json,application/json" style="display:none"></label></div><div class="hint">資料只保存在目前瀏覽器中。清除網站資料、換瀏覽器或換手機，都可能導致資料遺失；請定期匯出備份。</div>`,()=>{$('exportBackup').onclick=async()=>{let data=await toDataObject();downloadBlob(new Blob([JSON.stringify(data)],{type:'application/json'}),`我的食物日記備份_${localDate(new Date())}.json`);toast('已開始匯出備份')};$('importBackup').onchange=async e=>{let file=e.target.files[0];if(!file)return;try{let obj=JSON.parse(await file.text());if(!obj||!Array.isArray(obj.meals)||!Array.isArray(obj.events))throw Error('格式不符');if(!confirm(`備份中有 ${obj.meals.length} 筆飲食、${obj.events.length} 筆身體事件。匯入並合併到目前資料？`))return;for(let m of obj.meals){if(!m.id||!m.date)continue;await put('meals',m)}for(let v of obj.events){if(!v.id||!v.date)continue;await put('events',v)}closeModal();renderDate();toast('備份還原完成')}catch(err){toast('無法讀取此備份檔，原有資料未被清除')}}})}
 function dayDiff(a,b){return Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/86400000)+1}
-async function buildReport(){let start=$('rangeStart').value,end=$('rangeEnd').value;if(!start||!end||start>end){toast('請確認日期範圍');return}let days=dayDiff(start,end);if(days>31&&!confirm('這段日期超過 31 天，仍要整理嗎？'))return;let [meals,events]=await Promise.all([all('meals'),all('events')]);meals=meals.filter(x=>x.date>=start&&x.date<=end).sort((a,b)=>a.date.localeCompare(b.date));events=events.filter(x=>x.date>=start&&x.date<=end).sort((a,b)=>a.date.localeCompare(b.date));let countByType={};meals.forEach(m=>countByType[m.mealType]=(countByType[m.mealType]||0)+1);let html=`<div class="reportbox" id="reportPrintable"><h3>階段記錄摘要</h3><p>${fmtDate(start)} 至 ${fmtDate(end)}（${days} 天）</p><div class="statrow"><div class="stat"><b>${meals.length}</b><span>飲食記錄</span></div><div class="stat"><b>${events.length}</b><span>身體事件</span></div><div class="stat"><b>${meals.reduce((n,m)=>n+(m.photos?.length||0),0)}</b><span>照片數</span></div></div><p><b>餐別記錄數：</b>${Object.keys(countByType).length?Object.entries(countByType).map(([k,v])=>`${esc(k)} ${v} 筆`).join('、'):'尚無記錄'}</p><p class="hint">此摘要只整理已記錄的內容，不代表醫療診斷，也不會僅依食物紀錄判定中醫體質。</p></div><div class="reportbox"><h3>飲食時間軸</h3>${meals.length?meals.map(m=>`<p><b>${esc(m.date)} · ${esc(m.mealType)}</b>${m.foodName?' — '+esc(m.foodName):''}${m.notes?'；'+esc(m.notes):''}${m.photos?.length?`（${m.photos.length} 張照片已包含於完整備份）`:''}</p>`).join(''):'<p>這段期間沒有飲食記錄。</p>'}</div><div class="reportbox"><h3>身體事件時間軸</h3>${events.length?events.map(v=>`<p><b>${esc(v.date)} · ${esc(v.period)}</b> — ${esc(v.description)}</p>`).join(''):'<p>這段期間沒有身體事件記錄。</p>'}</div><div class="addrow"><button class="primary" id="exportSummary">匯出醫生閱讀摘要（HTML）</button><button class="secondary" id="exportRangeBackup">匯出完整資料（含照片）</button></div>`;$('reportResult').innerHTML=html;$('exportSummary').onclick=()=>{let body=$('reportResult').innerHTML.replace(/<div class="addrow">[\s\S]*?<\/div>$/,'');let doc=`<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>飲食與身體事件摘要</title><style>body{font:16px/1.7 -apple-system,sans-serif;max-width:800px;margin:24px auto;padding:0 16px;color:#242922}.reportbox{border:1px solid #ddd;border-radius:14px;padding:16px;margin:14px 0}.statrow{display:flex;gap:10px}.stat{background:#f2f3ec;padding:12px;border-radius:10px;flex:1}.stat b{display:block;font-size:22px}.hint{color:#666;font-size:13px}</style><h1>飲食與身體事件摘要</h1>${body}</html>`;downloadBlob(new Blob([doc],{type:'text/html;charset=utf-8'}),`飲食與身體事件摘要_${start}_${end}.html`)};$('exportRangeBackup').onclick=async()=>{let data=await toDataObject();data.meals=data.meals.filter(x=>x.date>=start&&x.date<=end);data.events=data.events.filter(x=>x.date>=start&&x.date<=end);downloadBlob(new Blob([JSON.stringify(data)],{type:'application/json'}),`日記資料_${start}_${end}.json`)} }
+function makeSummaryDoc(body,start,end){
+ return `<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>飲食與身體事件摘要</title><style>body{font:16px/1.7 -apple-system,sans-serif;max-width:800px;margin:24px auto;padding:0 16px;color:#242922}.reportbox{border:1px solid #ddd;border-radius:14px;padding:16px;margin:14px 0}.statrow{display:flex;gap:10px}.stat{background:#f2f3ec;padding:12px;border-radius:10px;flex:1}.stat b{display:block;font-size:22px}.hint{color:#666;font-size:13px}</style><h1>飲食與身體事件摘要</h1><p>記錄期間：${fmtDate(start)} 至 ${fmtDate(end)}</p>${body}</html>`;
+}
+async function shareDoctorFiles(summaryDoc,backupData,start,end){
+ const summaryFile=new File([summaryDoc],`飲食與身體事件摘要_${start}_${end}.html`,{type:'text/html;charset=utf-8'});
+ const backupFile=new File([JSON.stringify(backupData)],`日記資料_${start}_${end}.json`,{type:'application/json'});
+ if(navigator.share&&navigator.canShare&&navigator.canShare({files:[summaryFile,backupFile]})){
+  try{
+   await navigator.share({files:[summaryFile,backupFile],title:'飲食與身體事件記錄',text:`請查閱附件：醫師閱讀摘要及含照片的完整記錄（${start} 至 ${end}）。`});
+   toast('已開啟分享選單，請選擇「郵件」並確認寄送');
+   return;
+  }catch(err){if(err&&err.name==='AbortError')return;}
+ }
+ downloadBlob(new Blob([summaryDoc],{type:'text/html;charset=utf-8'}),summaryFile.name);
+ downloadBlob(new Blob([JSON.stringify(backupData)],{type:'application/json'}),backupFile.name);
+ toast('此瀏覽器未支援直接分享附件，已改為匯出兩個檔案');
+}
+async function buildReport(){
+ let start=$('rangeStart').value,end=$('rangeEnd').value;
+ if(!start||!end||start>end){toast('請確認日期範圍');return}
+ let days=dayDiff(start,end);
+ if(days>31&&!confirm('這段日期超過 31 天，仍要整理嗎？'))return;
+ let [meals,events]=await Promise.all([all('meals'),all('events')]);
+ meals=meals.filter(x=>x.date>=start&&x.date<=end).sort((a,b)=>a.date.localeCompare(b.date));
+ events=events.filter(x=>x.date>=start&&x.date<=end).sort((a,b)=>a.date.localeCompare(b.date));
+ let countByType={};meals.forEach(m=>countByType[m.mealType]=(countByType[m.mealType]||0)+1);
+ let html=`<div class="reportbox" id="reportPrintable"><h3>階段記錄摘要</h3><p>${fmtDate(start)} 至 ${fmtDate(end)}（${days} 天）</p><div class="statrow"><div class="stat"><b>${meals.length}</b><span>飲食記錄</span></div><div class="stat"><b>${events.length}</b><span>身體事件</span></div><div class="stat"><b>${meals.reduce((n,m)=>n+(m.photos?.length||0),0)}</b><span>照片數</span></div></div><p><b>餐別記錄數：</b>${Object.keys(countByType).length?Object.entries(countByType).map(([k,v])=>`${esc(k)} ${v} 筆`).join('、'):'尚無記錄'}</p><p class="hint">此摘要只整理已記錄的內容，不代表醫療診斷，也不會僅依食物紀錄判定中醫體質。</p></div><div class="reportbox"><h3>飲食時間軸</h3>${meals.length?meals.map(m=>`<p><b>${esc(m.date)} · ${esc(m.mealType)}</b>${m.foodName?' — '+esc(m.foodName):''}${m.notes?'；'+esc(m.notes):''}${m.photos?.length?`（${m.photos.length} 張照片已包含於完整備份）`:''}</p>`).join(''):'<p>這段期間沒有飲食記錄。</p>'}</div><div class="reportbox"><h3>身體事件時間軸</h3>${events.length?events.map(v=>`<p><b>${esc(v.date)} · ${esc(v.period)}</b> — ${esc(v.description)}</p>`).join(''):'<p>這段期間沒有身體事件記錄。</p>'}</div><div class="addrow"><button class="primary" id="shareDoctor">一鍵寄送給醫師（摘要＋照片資料）</button><button class="secondary" id="exportSummary">匯出醫生閱讀摘要（HTML）</button><button class="secondary" id="exportRangeBackup">匯出完整資料（含照片）</button></div>`;
+ $('reportResult').innerHTML=html;
+ const summaryBody=()=>$('reportResult').innerHTML.replace(/<div class="addrow">[\s\S]*?<\/div>$/,'');
+ const makeBackup=async()=>{
+  let data=await toDataObject();
+  data.meals=data.meals.filter(x=>x.date>=start&&x.date<=end);
+  data.events=data.events.filter(x=>x.date>=start&&x.date<=end);
+  return data;
+ };
+ $('exportSummary').onclick=()=>{
+  let doc=makeSummaryDoc(summaryBody(),start,end);
+  downloadBlob(new Blob([doc],{type:'text/html;charset=utf-8'}),`飲食與身體事件摘要_${start}_${end}.html`);
+ };
+ $('exportRangeBackup').onclick=async()=>{
+  let data=await makeBackup();
+  downloadBlob(new Blob([JSON.stringify(data)],{type:'application/json'}),`日記資料_${start}_${end}.json`);
+ };
+ $('shareDoctor').onclick=async()=>{
+  try{
+   let data=await makeBackup();
+   let doc=makeSummaryDoc(summaryBody(),start,end);
+   await shareDoctorFiles(doc,data,start,end);
+  }catch(err){toast('產生附件失敗，請稍後再試');}
+ };
+}
 $('prevDay').onclick=()=>{currentDate=shiftDate(currentDate,-1);renderDate()};$('nextDay').onclick=()=>{currentDate=shiftDate(currentDate,1);renderDate()};$('todayBtn').onclick=()=>{currentDate=localDate(new Date());renderDate()};document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));$('addMealBtn').onclick=()=>openMeal();$('addSnackBtn').onclick=()=>openMeal(null,'點心／飲品');$('quickMeal').onclick=()=>openMeal();$('addEventBtn').onclick=()=>openEvent();$('quickEvent').onclick=()=>{setTab('events');openEvent()};$('settingsBtn').onclick=openBackup;$('buildReport').onclick=buildReport;
 (async()=>{try{if(!('indexedDB'in window))throw Error('no indexedDB');db=await openDB();$('rangeEnd').value=currentDate;$('rangeStart').value=shiftDate(currentDate,-6);renderDate()}catch(e){document.querySelector('.app').insertAdjacentHTML('afterbegin','<div class="card" style="border-color:#d99">此瀏覽器無法啟用本機資料儲存。請改用 Safari 或 Chrome 開啟，並避免使用無痕模式。</div>')}})();
 })();
