@@ -162,6 +162,34 @@ body{background:#f5f4ed;line-height:1.55}
  #settingsView .pill{padding:9px 11px;font-size:13px}
 }
 
+
+/* Pre-send report preview */
+.preview-report{max-height:46vh;overflow:auto;border:1px solid var(--line);border-radius:18px;background:#fff;padding:10px;margin-bottom:14px}
+.preview-report .reportbox{box-shadow:none;margin:0 0 10px;padding:13px;border-radius:15px}
+.preview-report .reportbox:last-child{margin-bottom:0}
+.preview-report .statrow{gap:6px}
+.preview-report .stat{padding:9px;background:linear-gradient(145deg,#edf4e8,#f8f1e6)}
+.preview-report .stat b{font-size:18px}
+@media(max-width:600px){.preview-report{max-height:42vh}.modal{padding:16px}.preview-report .reportbox{padding:11px}}
+
+
+/* Stage summary layout inspired by the approved two-panel reference */
+#reviewView{display:grid;grid-template-columns:minmax(0,.96fr) minmax(0,1fr);gap:12px;align-items:start}
+#reviewView>.sectionhead{grid-column:1/-1;margin-top:18px}
+#reviewView>.card{grid-column:1;grid-row:2;margin:0;background:linear-gradient(145deg,#fff8ee,#fff 70%);border:1px solid #f0dfc9;padding:18px;border-radius:22px}
+#reviewView #reportResult{grid-column:2;grid-row:2;min-width:0}
+#reviewView .field input{font-size:14px;padding:12px 10px}
+#reviewView #buildReport{font-size:15px;min-height:48px;border-radius:13px}
+.stage-action-panel{margin-top:20px;padding-top:16px;border-top:1px solid #eadfce}
+.stage-action-panel h3{font-size:17px;margin:0 0 12px}
+.stage-stat-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.stage-stat{min-width:0;border-radius:15px;padding:12px 8px;display:flex;flex-direction:column;gap:5px;align-items:center;text-align:center;border:1px solid transparent}
+.stage-stat span{font-size:11px;font-weight:800;line-height:1.35}.stage-stat b{font-size:24px;line-height:1.1}.stage-stat small{font-size:11px}
+.food-stat{background:linear-gradient(145deg,#fff0d6,#fff8ed);border-color:#f3dfbf;color:#96611e}.body-stat{background:linear-gradient(145deg,#e8f5e8,#f8fff6);border-color:#d5e8d2;color:#347043}.photo-stat{background:linear-gradient(145deg,#f7eaf3,#fff7fc);border-color:#efd9e7;color:#a14f86}
+.stage-actions{display:grid;grid-template-columns:1fr;gap:8px;margin-top:14px}.stage-action{min-height:62px;border-radius:15px;padding:10px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:3px;font-size:13px;font-weight:800;line-height:1.4}.stage-action small{font-size:11px;font-weight:600}.export-html{background:#e9f1e7;color:#345c3b}.export-data{background:#e8f1e9;color:#315d3b}.send-doctor{background:linear-gradient(135deg,#e6f0ff,#f0e9ff);color:#315eb2}
+.stage-preview-card{background:#fff;border:1px solid #e5e4dc;border-radius:23px;overflow:hidden;box-shadow:0 5px 18px #27382708}.stage-preview-heading{padding:17px 17px 13px;background:linear-gradient(135deg,#f7f8f1,#fff);border-bottom:1px solid #ecece5;display:flex;justify-content:space-between;gap:8px;align-items:center}.stage-kicker{font-size:9px;letter-spacing:.12em;color:#6c8b65;font-weight:900}.stage-preview-heading h3{font-size:20px;margin:3px 0}.stage-preview-heading p{font-size:12px;color:#687064;margin:0}.stage-preview-icon{font-size:25px;background:#edf5e8;border-radius:13px;padding:8px}.stage-preview-card .reportbox{margin:0;border-radius:0;padding:15px 16px;border:0;border-bottom:1px solid #efeee8;box-shadow:none}.stage-preview-card .reportbox h3{font-size:15px;margin-bottom:9px;color:#30392f}.stage-preview-card ul{padding-left:19px;margin:7px 0}.stage-preview-card li,.stage-preview-card p{font-size:12px;line-height:1.65;margin:3px 0;color:#50584e;overflow-wrap:anywhere}.stage-preview-card .preview-meals{background:linear-gradient(110deg,#fff 75%,#fff8ed)}.stage-preview-card .preview-events{background:linear-gradient(110deg,#fff 75%,#f3effb)}.stage-timeline{border-top:1px dashed #e7e3d9;margin-top:9px;padding-top:7px}.stage-disclaimer{font-size:11px;color:#777e73;background:#fafaf6;padding:12px 15px;line-height:1.55}
+@media(max-width:600px){#reviewView{display:flex;flex-direction:column;gap:12px}#reviewView>.sectionhead{width:100%;margin:18px 2px 4px}#reviewView>.card,#reviewView #reportResult{width:100%;grid-column:auto;grid-row:auto}#reviewView>.card{padding:17px}.stage-stat-grid{gap:6px}.stage-stat{padding:10px 5px}.stage-stat span{font-size:10px}.stage-stat b{font-size:23px}.stage-actions{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.stage-action{font-size:11px;min-height:78px;padding:7px 4px;border-radius:12px}.stage-action small{font-size:9px}.stage-preview-heading h3{font-size:19px}.stage-preview-card .reportbox{padding:14px}.stage-preview-card li,.stage-preview-card p{font-size:13px}}
+
 </style></head>
 <body><main class="app">
 <header class="top"><div><div class="eyebrow">FOOD · BODY · NOTES</div><div class="brand">我的食物日記</div><div class="sub">先好好記錄，之後再一起回看。</div></div><button class="iconbtn" id="settingsBtn" aria-label="显示设置">⚙️ 设置</button></header>
@@ -250,31 +278,20 @@ async function buildReport(){
  let [meals,events]=await Promise.all([all('meals'),all('events')]);
  meals=meals.filter(x=>x.date>=start&&x.date<=end).sort((a,b)=>a.date.localeCompare(b.date));
  events=events.filter(x=>x.date>=start&&x.date<=end).sort((a,b)=>a.date.localeCompare(b.date));
+ let photoCount=meals.reduce((n,m)=>n+(m.photos?.length||0),0);
  let countByType={};meals.forEach(m=>countByType[m.mealType]=(countByType[m.mealType]||0)+1);
- let html=`<div class="reportbox" id="reportPrintable"><h3>階段記錄摘要</h3><p>${fmtDate(start)} 至 ${fmtDate(end)}（${days} 天）</p><div class="statrow"><div class="stat"><b>${meals.length}</b><span>飲食記錄</span></div><div class="stat"><b>${events.length}</b><span>身體事件</span></div><div class="stat"><b>${meals.reduce((n,m)=>n+(m.photos?.length||0),0)}</b><span>照片數</span></div></div><p><b>餐別記錄數：</b>${Object.keys(countByType).length?Object.entries(countByType).map(([k,v])=>`${esc(k)} ${v} 筆`).join('、'):'尚無記錄'}</p><p class="hint">此摘要只整理已記錄的內容，不代表醫療診斷，也不會僅依食物紀錄判定中醫體質。</p></div><div class="reportbox"><h3>飲食時間軸</h3>${meals.length?meals.map(m=>`<p><b>${esc(m.date)} · ${esc(m.mealType)}</b>${m.foodName?' — '+esc(m.foodName):''}${m.notes?'；'+esc(m.notes):''}${m.photos?.length?`（${m.photos.length} 張照片已包含於完整備份）`:''}</p>`).join(''):'<p>這段期間沒有飲食記錄。</p>'}</div><div class="reportbox"><h3>身體事件時間軸</h3>${events.length?events.map(v=>`<p><b>${esc(v.date)} · ${esc(v.period)}</b> — ${esc(v.description)}</p>`).join(''):'<p>這段期間沒有身體事件記錄。</p>'}</div><div class="addrow"><button class="primary" id="shareDoctor">一鍵寄送給醫師（摘要＋照片資料）</button><button class="secondary" id="exportSummary">匯出醫生閱讀摘要（HTML）</button><button class="secondary" id="exportRangeBackup">匯出完整資料（含照片）</button></div>`;
- $('reportResult').innerHTML=html;
- const summaryBody=()=>$('reportResult').innerHTML.replace(/<div class="addrow">[\s\S]*?<\/div>$/,'');
- const makeBackup=async()=>{
-  let data=await toDataObject();
-  data.meals=data.meals.filter(x=>x.date>=start&&x.date<=end);
-  data.events=data.events.filter(x=>x.date>=start&&x.date<=end);
-  return data;
- };
- $('exportSummary').onclick=()=>{
-  let doc=makeSummaryDoc(summaryBody(),start,end);
-  downloadBlob(new Blob([doc],{type:'text/html;charset=utf-8'}),`飲食與身體事件摘要_${start}_${end}.html`);
- };
- $('exportRangeBackup').onclick=async()=>{
-  let data=await makeBackup();
-  downloadBlob(new Blob([JSON.stringify(data)],{type:'application/json'}),`日記資料_${start}_${end}.json`);
- };
- $('shareDoctor').onclick=async()=>{
-  try{
-   let data=await makeBackup();
-   let doc=makeSummaryDoc(summaryBody(),start,end);
-   await shareDoctorFiles(doc,data,start,end);
-  }catch(err){toast('產生附件失敗，請稍後再試');}
- };
+ const card=document.querySelector('#reviewView>.card');
+ let oldStats=$('stageActionPanel');if(oldStats)oldStats.remove();
+ card.insertAdjacentHTML('beforeend',`<div id="stageActionPanel" class="stage-action-panel"><h3>✨ 摘要內容</h3><div class="stage-stat-grid"><div class="stage-stat food-stat"><span>🍴 飲食記錄</span><b>${meals.length}</b><small>筆記錄</small></div><div class="stage-stat body-stat"><span>🌿 身體事件</span><b>${events.length}</b><small>筆記錄</small></div><div class="stage-stat photo-stat"><span>🖼️ 照片數量</span><b>${photoCount}</b><small>張照片</small></div></div><div class="stage-actions"><button class="stage-action export-html" id="exportSummary">📄 匯出醫師閱讀摘要 <small>(HTML)</small></button><button class="stage-action export-data" id="exportRangeBackup">🗂️ 匯出完整資料 <small>(含照片)</small></button><button class="stage-action send-doctor" id="shareDoctor">📨 一鍵傳送給醫師 <small>(摘要＋照片資料)</small></button></div></div>`);
+ let timelineMeals=meals.length?meals.map(m=>`<p><b>${esc(m.date)} · ${esc(m.mealType||'飲食')}</b>${m.foodName?' — '+esc(m.foodName):''}${m.notes?'；'+esc(m.notes):''}${m.photos?.length?`（${m.photos.length} 張照片已包含於完整備份）`:''}</p>`).join(''):'<p>這段期間沒有飲食記錄。</p>';
+ let timelineEvents=events.length?events.map(v=>`<p><b>${esc(v.date)} · ${esc(v.period||'')}</b> — ${esc(v.description)}</p>`).join(''):'<p>這段期間沒有身體事件記錄。</p>';
+ const previewHtml=`<div class="stage-preview-heading"><div><span class="stage-kicker">YOUR PERIOD SUMMARY</span><h3>階段記錄摘要</h3><p>${fmtDate(start)} ～ ${fmtDate(end)} · 共 ${days} 天</p></div><span class="stage-preview-icon">📋</span></div><div class="reportbox preview-meals"><h3>🍽️ 一、飲食記錄</h3><ul><li>總筆數：${meals.length} 筆</li><li>主要餐別：${Object.keys(countByType).length?Object.entries(countByType).map(([k,v])=>`${esc(k)} ${v} 筆`).join('、'):'尚無記錄'}</li><li>照片數量：${photoCount} 張</li></ul><div class="stage-timeline">${timelineMeals}</div></div><div class="reportbox preview-events"><h3>🌱 二、身體事件</h3><ul><li>總筆數：${events.length} 筆</li></ul><div class="stage-timeline">${timelineEvents}</div></div><div class="stage-disclaimer">此摘要只整理已記錄的內容，不代表醫療診斷，也不會僅依食物紀錄判定中醫體質。</div>`;
+ $('reportResult').innerHTML=`<div class="stage-preview-card" id="stagePreviewCard">${previewHtml}</div>`;
+ const summaryBody=()=>previewHtml;
+ const makeBackup=async()=>{let data=await toDataObject();data.meals=data.meals.filter(x=>x.date>=start&&x.date<=end);data.events=data.events.filter(x=>x.date>=start&&x.date<=end);return data};
+ $('exportSummary').onclick=()=>{let doc=makeSummaryDoc(summaryBody(),start,end);downloadBlob(new Blob([doc],{type:'text/html;charset=utf-8'}),`飲食與身體事件摘要_${start}_${end}.html`);toast('已匯出摘要')};
+ $('exportRangeBackup').onclick=async()=>{let data=await makeBackup();downloadBlob(new Blob([JSON.stringify(data)],{type:'application/json'}),`日記資料_${start}_${end}.json`);toast('已匯出完整資料')};
+ $('shareDoctor').onclick=async()=>{try{const body=summaryBody();showModal('傳送前預覽',`<div class="hint" style="margin-bottom:12px">請先確認日期、飲食與身體事件內容，再選擇傳送方式。照片會放在完整資料備份附件中。</div><div class="preview-report">${body}</div><div class="reportbox" style="background:linear-gradient(135deg,#edf4e8,#fff8ec)"><h3>📨 選擇傳送方式</h3><p>可開啟 iPhone 分享選單傳送給醫師，或分別匯出摘要與完整資料。</p><button class="primary" style="width:100%;margin-bottom:8px" id="confirmShareDoctor">📤 開啟分享／郵件選單</button><button class="secondary" style="width:100%;margin-bottom:8px" id="previewExportSummary">📄 只匯出閱讀摘要</button><button class="secondary" style="width:100%" id="previewExportBackup">🗂️ 匯出完整資料（含照片）</button></div>`,()=>{$('confirmShareDoctor').onclick=async()=>{try{const data=await makeBackup();const doc=makeSummaryDoc(body,start,end);closeModal();await shareDoctorFiles(doc,data,start,end)}catch(err){toast('產生附件失敗，請稍後再試')}};$('previewExportSummary').onclick=()=>{const doc=makeSummaryDoc(body,start,end);downloadBlob(new Blob([doc],{type:'text/html;charset=utf-8'}),`飲食與身體事件摘要_${start}_${end}.html`);toast('已匯出摘要')};$('previewExportBackup').onclick=async()=>{const data=await makeBackup();downloadBlob(new Blob([JSON.stringify(data)],{type:'application/json'}),`日記資料_${start}_${end}.json`);toast('已匯出完整資料')}})}catch(err){toast('產生預覽失敗，請稍後再試')}};
 }
 
 let mainPage='home',recordFilter='all',calendarMonth=new Date();
