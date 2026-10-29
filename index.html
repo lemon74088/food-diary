@@ -251,7 +251,7 @@ function openSettings(){
   $('openBackupFromSettings').onclick=()=>{openBackup()};
  });
 }
-function openBackup(){showModal('資料備份與還原',`<div class="reportbox"><h3>匯出完整備份</h3><p>包含飲食文字、身體事件和照片。請把備份檔保存在安全的位置。</p><button class="primary" style="width:100%" id="exportBackup">匯出完整備份（JSON）</button></div><div class="reportbox"><h3>還原備份</h3><p>選擇先前匯出的 JSON 檔。匯入會合併資料；相同記錄 ID 將以備份內容更新。</p><label class="secondary" style="display:block;text-align:center;cursor:pointer">選擇備份檔<input id="importBackup" type="file" accept=".json,application/json" style="display:none"></label></div><div class="hint">資料只保存在目前瀏覽器中。清除網站資料、換瀏覽器或換手機，都可能導致資料遺失；請定期匯出備份。</div>`,()=>{$('exportBackup').onclick=async()=>{let data=await toDataObject();downloadBlob(new Blob([JSON.stringify(data)],{type:'application/json'}),`我的食物日記備份_${localDate(new Date())}.json`);toast('已開始匯出備份')};$('importBackup').onchange=async e=>{let file=e.target.files[0];if(!file)return;try{let obj=JSON.parse(await file.text());if(!obj||!Array.isArray(obj.meals)||!Array.isArray(obj.events))throw Error('格式不符');if(!confirm(`備份中有 ${obj.meals.length} 筆飲食、${obj.events.length} 筆身體事件。匯入並合併到目前資料？`))return;for(let m of obj.meals){if(!m.id||!m.date)continue;await put('meals',m)}for(let v of obj.events){if(!v.id||!v.date)continue;await put('events',v)}closeModal();renderDate();toast('備份還原完成')}catch(err){toast('無法讀取此備份檔，原有資料未被清除')}}})}
+function openBackup(){showModal('資料備份與還原',`<div class="reportbox"><h3>匯出完整備份</h3><p>包含飲食文字、身體事件和照片。請把備份檔保存在安全的位置。</p><button class="primary" style="width:100%" id="exportBackup">匯出完整備份（JSON）</button></div><div class="reportbox"><h3>還原備份</h3><p>選擇先前匯出的 JSON 檔。匯入會合併資料；相同記錄 ID 將以備份內容更新。</p><label class="secondary" style="display:block;text-align:center;cursor:pointer">選擇備份檔<input id="importBackup" type="file" accept=".json,application/json" style="display:none"></label></div><div class="reportbox"><h3>📷 照片儲存管理</h3><p>寄送醫師時會自動產生壓縮 JPG 副本（長邊最多 1600 px、品質約 80%），原始照片不會被修改。照片很多時會按約 15 MB 分批傳送。</p></div><div class="hint">資料只保存在目前瀏覽器中。清除網站資料、換瀏覽器或換手機，都可能導致資料遺失；請定期匯出備份。</div>`,()=>{$('exportBackup').onclick=async()=>{let data=await toDataObject();downloadBlob(new Blob([JSON.stringify(data)],{type:'application/json'}),`我的食物日記備份_${localDate(new Date())}.json`);toast('已開始匯出備份')};$('importBackup').onchange=async e=>{let file=e.target.files[0];if(!file)return;try{let obj=JSON.parse(await file.text());if(!obj||!Array.isArray(obj.meals)||!Array.isArray(obj.events))throw Error('格式不符');if(!confirm(`備份中有 ${obj.meals.length} 筆飲食、${obj.events.length} 筆身體事件。匯入並合併到目前資料？`))return;for(let m of obj.meals){if(!m.id||!m.date)continue;await put('meals',m)}for(let v of obj.events){if(!v.id||!v.date)continue;await put('events',v)}closeModal();renderDate();toast('備份還原完成')}catch(err){toast('無法讀取此備份檔，原有資料未被清除')}}})}
 function dayDiff(a,b){return Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/86400000)+1}
 function makeSummaryDoc(body,start,end){
  return `<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>飲食與身體事件摘要</title><style>body{font:16px/1.7 -apple-system,sans-serif;max-width:800px;margin:24px auto;padding:0 16px;color:#242922}.reportbox{border:1px solid #ddd;border-radius:14px;padding:16px;margin:14px 0}.statrow{display:flex;gap:10px}.stat{background:#f2f3ec;padding:12px;border-radius:10px;flex:1}.stat b{display:block;font-size:22px}.hint{color:#666;font-size:13px}</style><h1>飲食與身體事件摘要</h1><p>記錄期間：${fmtDate(start)} 至 ${fmtDate(end)}</p>${body}</html>`;
@@ -276,23 +276,41 @@ function makePlainDoctorSummary(backupData,start,end){
  lines.push('', '二、身體事件', `總筆數：${events.length} 筆`);
  if(events.length) events.forEach(e=>lines.push(`- ${e.date||''} · ${e.period||''}：${e.description||''}`));
  else lines.push('這段期間沒有身體事件記錄。');
- lines.push('', '說明：本摘要僅整理使用者自行記錄的內容，不代表醫療診斷。若需要查看原始照片，請另外匯出完整資料。');
+ lines.push('', '照片會在傳送前另製壓縮 JPG 副本；原始照片保留於本機。此摘要僅整理使用者自行記錄的內容，不代表醫療診斷。');
  return lines.join('\n');
+}
+async function compressPhotoDataUrl(dataUrl, maxSide=1600, quality=0.82){
+ return new Promise((resolve,reject)=>{
+  const img=new Image();
+  img.onload=()=>{try{const scale=Math.min(1,maxSide/Math.max(img.naturalWidth,img.naturalHeight));const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(img.naturalWidth*scale));canvas.height=Math.max(1,Math.round(img.naturalHeight*scale));const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0,canvas.width,canvas.height);canvas.toBlob(blob=>blob?resolve(blob):reject(Error('壓縮失敗')),'image/jpeg',quality)}catch(e){reject(e)}};
+  img.onerror=()=>reject(Error('照片讀取失敗'));img.src=dataUrl;
+ });
 }
 async function shareDoctorFiles(summaryDoc,backupData,start,end){
  const summaryText=makePlainDoctorSummary(backupData,start,end);
- if(navigator.share){
-  try{
-   await navigator.share({title:`飲食與身體事件摘要 ${start} 至 ${end}`,text:summaryText});
-   toast('已開啟分享選單；選擇郵件後，摘要文字會放在郵件內文，請確認後寄送');
-   return;
-  }catch(err){if(err&&err.name==='AbortError')return;}
+ const records=[];
+ (backupData.meals||[]).forEach(m=>(m.photos||[]).forEach((photo,i)=>{if(typeof photo==='string'&&photo.startsWith('data:image/'))records.push({photo,date:m.date||start,kind:m.mealType||'飲食',index:i+1})}));
+ (backupData.events||[]).forEach(e=>(e.photos||[]).forEach((photo,i)=>{if(typeof photo==='string'&&photo.startsWith('data:image/'))records.push({photo,date:e.date||start,kind:'身體事件',index:i+1})}));
+ if(!records.length){if(navigator.share){try{await navigator.share({title:`飲食與身體事件摘要 ${start} 至 ${end}`,text:summaryText});toast('摘要已開啟分享選單；此日期區間沒有可附加的照片');return}catch(err){if(err&&err.name==='AbortError')return}}toast('這段日期沒有可寄送的照片，已保留摘要文字');return}
+ toast(`正在壓縮 ${records.length} 張照片，請稍候…`);
+ const files=[];let total=0;
+ try{
+  for(let i=0;i<records.length;i++){
+   const r=records[i];const blob=await compressPhotoDataUrl(r.photo,1600,0.80);const file=new File([blob],`食物日記_${r.date}_${r.kind}_${r.index}.jpg`,{type:'image/jpeg'});files.push(file);total+=blob.size;
+  }
+ }catch(e){toast('有照片無法壓縮，請先確認記錄中的照片是否能正常顯示');return}
+ const maxBytes=15*1024*1024;
+ if(total>maxBytes){
+  const batches=[];let batch=[],bytes=0;
+  for(const file of files){if(batch.length&&bytes+file.size>maxBytes){batches.push(batch);batch=[];bytes=0}batch.push(file);bytes+=file.size}if(batch.length)batches.push(batch);
+  showModal('照片已壓縮，需分批傳送',`<div class="reportbox"><h3>共 ${files.length} 張照片</h3><p>壓縮後約 ${(total/1024/1024).toFixed(1)} MB，超過單封郵件建議容量。已分成 ${batches.length} 批，每批不超過約 15 MB。</p><p>每次點擊會開啟一次分享選單，請選「郵件」寄出，再回到 App 傳送下一批。</p><p class="hint">摘要文字會放在每封郵件內文，照片以 JPG 附件傳送。</p></div><div id="batchButtons"></div>`,()=>{const root=$('batchButtons');batches.forEach((batch,i)=>{const b=document.createElement('button');b.className='primary';b.style='width:100%;margin:6px 0';b.textContent=`📨 傳送第 ${i+1}/${batches.length} 批（${batch.length} 張）`;b.onclick=async()=>{try{if(!navigator.share||!navigator.canShare||!navigator.canShare({files:batch})){toast('此瀏覽器不支援附加照片分享，請使用 iPhone Safari');return}await navigator.share({title:`食物日記照片第 ${i+1} 批`,text:summaryText+`\n\n照片批次：第 ${i+1}/${batches.length} 批`,files:batch});toast(`第 ${i+1} 批分享已開啟，請確認郵件並寄送`)}catch(err){if(err&&err.name!=='AbortError')toast('分享未成功，請再試一次')}};root.appendChild(b)}); });
+  return;
  }
- if(navigator.clipboard&&navigator.clipboard.writeText){
-  try{await navigator.clipboard.writeText(summaryText);toast('摘要已複製，請貼到郵件內文；完整照片資料可另外匯出');return;}catch(e){}
+ if(!navigator.share||!navigator.canShare||!navigator.canShare({files})){
+  showModal('照片已壓縮完成',`<div class="reportbox"><h3>共 ${files.length} 張照片</h3><p>壓縮後約 ${(total/1024/1024).toFixed(1)} MB。</p><p>目前瀏覽器無法一次分享這些照片附件。請使用 iPhone Safari 開啟 App，再按「一鍵傳送給醫師」。</p></div><button class="primary" style="width:100%" id="downloadCompressedPhotos">下載壓縮照片（${files.length} 張）</button>`,()=>{$('downloadCompressedPhotos').onclick=()=>{files.forEach((file,i)=>setTimeout(()=>downloadBlob(file,file.name),i*250));toast('已開始下載壓縮照片')}});
+  return;
  }
- downloadBlob(new Blob([summaryText],{type:'text/plain;charset=utf-8'}),`doctor-summary-${start}-${end}.txt`);
- toast('已匯出可直接閱讀的文字摘要；完整照片資料請另外匯出');
+ try{await navigator.share({title:`飲食與身體事件摘要 ${start} 至 ${end}`,text:summaryText+`\n\n附件：${files.length} 張已壓縮 JPG 照片（約 ${(total/1024/1024).toFixed(1)} MB）。`,files});toast(`已開啟分享選單：摘要內文＋${files.length} 張壓縮照片。請選郵件並確認寄送`)}catch(err){if(err&&err.name!=='AbortError')toast('分享未成功，請重新操作')}
 }
 async function buildReport(){
  let start=$('rangeStart').value,end=$('rangeEnd').value;
@@ -306,7 +324,7 @@ async function buildReport(){
  let countByType={};meals.forEach(m=>countByType[m.mealType]=(countByType[m.mealType]||0)+1);
  const card=document.querySelector('#reviewView>.card');
  let oldStats=$('stageActionPanel');if(oldStats)oldStats.remove();
- card.insertAdjacentHTML('beforeend',`<div id="stageActionPanel" class="stage-action-panel"><h3>✨ 摘要內容</h3><div class="stage-stat-grid"><div class="stage-stat food-stat"><span>🍴 飲食記錄</span><b>${meals.length}</b><small>筆記錄</small></div><div class="stage-stat body-stat"><span>🌿 身體事件</span><b>${events.length}</b><small>筆記錄</small></div><div class="stage-stat photo-stat"><span>🖼️ 照片數量</span><b>${photoCount}</b><small>張照片</small></div></div><div class="stage-actions"><button class="stage-action export-html" id="exportSummary">📄 匯出醫師閱讀摘要 <small>(HTML)</small></button><button class="stage-action export-data" id="exportRangeBackup">🗂️ 匯出完整資料 <small>(含照片)</small></button><button class="stage-action send-doctor" id="shareDoctor">📨 一鍵傳送給醫師 <small>(摘要＋照片資料)</small></button></div></div>`);
+ card.insertAdjacentHTML('beforeend',`<div id="stageActionPanel" class="stage-action-panel"><h3>✨ 摘要內容</h3><div class="stage-stat-grid"><div class="stage-stat food-stat"><span>🍴 飲食記錄</span><b>${meals.length}</b><small>筆記錄</small></div><div class="stage-stat body-stat"><span>🌿 身體事件</span><b>${events.length}</b><small>筆記錄</small></div><div class="stage-stat photo-stat"><span>🖼️ 照片數量</span><b>${photoCount}</b><small>張照片</small></div></div><div class="stage-actions"><button class="stage-action export-html" id="exportSummary">📄 匯出醫師閱讀摘要 <small>(HTML)</small></button><button class="stage-action export-data" id="exportRangeBackup">🗂️ 匯出完整資料 <small>(含照片)</small></button><button class="stage-action send-doctor" id="shareDoctor">📨 一鍵傳送給醫師 <small>(摘要＋壓縮照片)</small></button></div></div>`);
  let timelineMeals=meals.length?meals.map(m=>`<p><b>${esc(m.date)} · ${esc(m.mealType||'飲食')}</b>${m.foodName?' — '+esc(m.foodName):''}${m.notes?'；'+esc(m.notes):''}${m.photos?.length?`（${m.photos.length} 張照片已包含於完整備份）`:''}</p>`).join(''):'<p>這段期間沒有飲食記錄。</p>';
  let timelineEvents=events.length?events.map(v=>`<p><b>${esc(v.date)} · ${esc(v.period||'')}</b> — ${esc(v.description)}</p>`).join(''):'<p>這段期間沒有身體事件記錄。</p>';
  const previewHtml=`<div class="stage-preview-heading"><div><span class="stage-kicker">YOUR PERIOD SUMMARY</span><h3>階段記錄摘要</h3><p>${fmtDate(start)} ～ ${fmtDate(end)} · 共 ${days} 天</p></div><span class="stage-preview-icon">📋</span></div><div class="reportbox preview-meals"><h3>🍽️ 一、飲食記錄</h3><ul><li>總筆數：${meals.length} 筆</li><li>主要餐別：${Object.keys(countByType).length?Object.entries(countByType).map(([k,v])=>`${esc(k)} ${v} 筆`).join('、'):'尚無記錄'}</li><li>照片數量：${photoCount} 張</li></ul><div class="stage-timeline">${timelineMeals}</div></div><div class="reportbox preview-events"><h3>🌱 二、身體事件</h3><ul><li>總筆數：${events.length} 筆</li></ul><div class="stage-timeline">${timelineEvents}</div></div><div class="stage-disclaimer">此摘要只整理已記錄的內容，不代表醫療診斷，也不會僅依食物紀錄判定中醫體質。</div>`;
@@ -315,7 +333,7 @@ async function buildReport(){
  const makeBackup=async()=>{let data=await toDataObject();data.meals=data.meals.filter(x=>x.date>=start&&x.date<=end);data.events=data.events.filter(x=>x.date>=start&&x.date<=end);return data};
  $('exportSummary').onclick=()=>{let doc=makeSummaryDoc(summaryBody(),start,end);downloadBlob(new Blob([doc],{type:'text/html;charset=utf-8'}),`飲食與身體事件摘要_${start}_${end}.html`);toast('已匯出摘要')};
  $('exportRangeBackup').onclick=async()=>{let data=await makeBackup();downloadBlob(new Blob([JSON.stringify(data)],{type:'application/json'}),`日記資料_${start}_${end}.json`);toast('已匯出完整資料')};
- $('shareDoctor').onclick=async()=>{try{const body=summaryBody();showModal('傳送前預覽',`<div class="hint" style="margin-bottom:12px">請先確認日期、飲食與身體事件內容，再選擇傳送方式。郵件內文會直接放入可閱讀的文字摘要；原始照片請另外匯出完整資料。</div><div class="preview-report">${body}</div><div class="reportbox" style="background:linear-gradient(135deg,#edf4e8,#fff8ec)"><h3>📨 選擇傳送方式</h3><p>選擇郵件時，摘要會直接放在郵件內文，不再附上無法直接閱讀的 HTML 摘要檔。原始照片與完整資料可另外匯出。</p><button class="primary" style="width:100%;margin-bottom:8px" id="confirmShareDoctor">📨 寄送可直接閱讀的摘要</button><button class="secondary" style="width:100%;margin-bottom:8px" id="previewExportSummary">📄 匯出文字摘要</button><button class="secondary" style="width:100%" id="previewExportBackup">🗂️ 匯出完整資料（含照片）</button></div>`,()=>{$('confirmShareDoctor').onclick=async()=>{try{const data=await makeBackup();const doc=makeSummaryDoc(body,start,end);closeModal();await shareDoctorFiles(doc,data,start,end)}catch(err){toast('產生附件失敗，請稍後再試')}};$('previewExportSummary').onclick=async()=>{const data=await makeBackup();const txt=makePlainDoctorSummary(data,start,end);downloadBlob(new Blob([txt],{type:'text/plain;charset=utf-8'}),`doctor-summary-${start}-${end}.txt`);toast('已匯出可直接閱讀的文字摘要')};$('previewExportBackup').onclick=async()=>{const data=await makeBackup();downloadBlob(new Blob([JSON.stringify(data)],{type:'application/json'}),`日記資料_${start}_${end}.json`);toast('已匯出完整資料')}})}catch(err){toast('產生預覽失敗，請稍後再試')}};
+ $('shareDoctor').onclick=async()=>{try{const body=summaryBody();showModal('傳送前預覽',`<div class="hint" style="margin-bottom:12px">請先確認日期、飲食與身體事件內容，再選擇傳送方式。郵件內文會直接放入可閱讀的文字摘要；照片會在傳送前壓縮成 JPG 附件，原始照片不會被覆蓋。</div><div class="preview-report">${body}</div><div class="reportbox" style="background:linear-gradient(135deg,#edf4e8,#fff8ec)"><h3>📨 選擇傳送方式</h3><p>選擇郵件時，摘要會直接放在郵件內文，不再附上無法直接閱讀的 HTML 摘要檔。原始照片與完整資料可另外匯出。</p><button class="primary" style="width:100%;margin-bottom:8px" id="confirmShareDoctor">📨 寄送可直接閱讀的摘要</button><button class="secondary" style="width:100%;margin-bottom:8px" id="previewExportSummary">📄 匯出文字摘要</button><button class="secondary" style="width:100%" id="previewExportBackup">🗂️ 匯出完整資料（含照片）</button></div>`,()=>{$('confirmShareDoctor').onclick=async()=>{try{const data=await makeBackup();const doc=makeSummaryDoc(body,start,end);closeModal();await shareDoctorFiles(doc,data,start,end)}catch(err){toast('產生附件失敗，請稍後再試')}};$('previewExportSummary').onclick=async()=>{const data=await makeBackup();const txt=makePlainDoctorSummary(data,start,end);downloadBlob(new Blob([txt],{type:'text/plain;charset=utf-8'}),`doctor-summary-${start}-${end}.txt`);toast('已匯出可直接閱讀的文字摘要')};$('previewExportBackup').onclick=async()=>{const data=await makeBackup();downloadBlob(new Blob([JSON.stringify(data)],{type:'application/json'}),`日記資料_${start}_${end}.json`);toast('已匯出完整資料')}})}catch(err){toast('產生預覽失敗，請稍後再試')}};
 }
 
 let mainPage='home',recordFilter='all',calendarMonth=new Date();
