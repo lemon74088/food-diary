@@ -100,6 +100,68 @@ body{background:#f5f4ed;line-height:1.55}
 .chartbar b{display:block;font-size:11px;color:var(--ink)}
 @media(max-width:390px){.page-nav button{font-size:10px}.page-nav button .navico{font-size:17px}.calendar-grid{gap:3px}.calendar-grid button{padding:8px 0}}
 
+
+/* Playful visual polish for pages 4–8: events, stage summary, report, analytics, settings */
+:root{
+ --mint:#e7f2e7;--mint-strong:#4f7955;--peach:#fff0e4;--peach-strong:#bd7547;
+ --lilac:#f0eafb;--lilac-strong:#8065a8;--sky:#e7f2fb;--sky-strong:#4d7fa5;
+ --lemon:#fff6d9;--rose:#fbe9e8;
+}
+#eventsView .sectionhead h2:before{content:"🌿 ";font-size:.9em}
+#eventsView>.card{background:linear-gradient(135deg,#f0f7eb,#fff 72%);border-color:#dce8d4}
+#eventsView #eventList .card{border-left:5px solid #86a77b;background:linear-gradient(110deg,#fff 70%,#f1f7eb)}
+#reviewView .sectionhead h2:before{content:"🧩 ";font-size:.9em}
+#reviewView>.card:first-of-type{background:linear-gradient(135deg,#fff4e6 0%,#fff 72%);border-color:#f0dfc8}
+#reviewView .field input{background:#fffdf8;border-color:#ead9c5}
+#reviewView #buildReport{background:linear-gradient(100deg,#4d704b,#6d9164);box-shadow:0 7px 15px #4d704b22}
+#reportResult .reportbox:first-child{background:linear-gradient(135deg,#eef7e9,#fff 75%);border-color:#d8e8d0}
+#reportResult .reportbox:nth-child(2){background:linear-gradient(135deg,#fff4e7,#fff 78%);border-color:#f0dfc9}
+#reportResult .reportbox:nth-child(3){background:linear-gradient(135deg,#f0eafb,#fff 78%);border-color:#e1d7f2}
+#reportResult .stat:nth-child(1){background:#fff0d9}
+#reportResult .stat:nth-child(2){background:#e9f5e8}
+#reportResult .stat:nth-child(3){background:#f3eafa}
+#reportResult .addrow{display:grid;grid-template-columns:1fr}
+#reportResult .addrow button{width:100%;min-height:48px}
+#statsView .sectionhead h2:before{content:"📊 ";font-size:.9em}
+#statsView>.statrow{gap:9px;margin-bottom:14px}
+#statsView>.statrow .stat{border-radius:18px;padding:15px 12px;border:1px solid transparent;box-shadow:0 4px 12px #26362608}
+#statsView>.statrow .stat:nth-child(1){background:linear-gradient(135deg,#fff0d9,#fffaf2);border-color:#f3dfbf}
+#statsView>.statrow .stat:nth-child(2){background:linear-gradient(135deg,#e8f5e8,#fafff8);border-color:#d5e8d2}
+#statsView>.statrow .stat:nth-child(3){background:linear-gradient(135deg,#f1eafb,#fffaff);border-color:#e4d8f3}
+#statsView>.statrow .stat b{font-size:27px;letter-spacing:-.04em}
+#statsView>.card{border-radius:24px;background:linear-gradient(150deg,#fff 65%,#f8f8f1);padding:18px}
+#statsView>.card h3{display:flex;align-items:center;gap:8px;font-size:16px;margin:0 0 10px}
+#statsView>.card h3:before{content:"";width:8px;height:22px;border-radius:8px;background:linear-gradient(#8caf80,#4f7955)}
+.chartbars{height:170px;background:linear-gradient(180deg,#f7fbf3,#fff);border:1px solid #e6eddf;border-bottom:2px solid #cbdcc4;border-radius:16px;padding:15px 8px 0}
+.chartbar i{background:linear-gradient(180deg,#a4c98e 0%,#4f7955 100%);box-shadow:0 3px 6px #4f795522}
+#mealTypeStats{display:flex;flex-wrap:wrap;gap:8px}
+#mealTypeStats .type-stat{flex:1 1 40%;padding:12px;border-radius:14px;background:#fff0e4;border:1px solid #f2ddca;font-weight:700}
+#calendarView .sectionhead h2:before{content:"🗓️ ";font-size:.9em}
+#calendarView>.card{background:linear-gradient(145deg,#eef6ec,#fff 58%);border-color:#dbe8d6}
+#calendarTitle{font-size:17px;margin:0;color:var(--green)}
+.calendar-grid button{min-height:40px;border-radius:13px;background:#fff;box-shadow:0 2px 5px #23332305;transition:transform .12s ease}
+.calendar-grid button.hasdata{background:linear-gradient(145deg,#dcebd5,#f2f8ed);border-color:#bcd4b1;box-shadow:inset 0 -3px 0 #b8d1ac}
+.calendar-grid button.chosen{background:linear-gradient(135deg,#426844,#6f9167);color:white;border-color:#426844;box-shadow:0 4px 10px #42684430}
+#settingsView .sectionhead h2:before{content:"🎨 ";font-size:.9em}
+#settingsView>.card:nth-of-type(1){background:linear-gradient(135deg,#f0eafb,#fff 70%);border-color:#e2d7f1}
+#settingsView>.card:nth-of-type(2){background:linear-gradient(135deg,#e8f5e8,#fff 70%);border-color:#d5e8d2}
+#settingsView>.card:nth-of-type(3){background:linear-gradient(135deg,#fff3e3,#fff 70%);border-color:#f0dfc9}
+#settingsView .pillrow{gap:9px}
+#settingsView .pill{border-radius:999px;padding:11px 14px;background:#fff;box-shadow:0 2px 7px #27382708}
+#settingsView .pill.selected{background:#e2f0dc;border-color:#7da372;color:#355f37;box-shadow:0 3px 9px #5c87511b}
+#settingsView h3{font-size:17px;margin:0 0 8px}
+.page-nav{background:#fff;border:1px solid #e6e7df;border-radius:20px;padding:5px;box-shadow:0 5px 18px #26362608}
+.page-nav button{transition:background .15s ease,color .15s ease}
+.page-nav button.active{background:linear-gradient(135deg,#dfeedd,#edf5e8);color:#416843;box-shadow:inset 0 -2px 0 #c5d9bd}
+.navbottom{background:#f7f6f1f2}
+@media(max-width:390px){
+ #statsView>.statrow .stat{padding:12px 8px}
+ #statsView>.statrow .stat b{font-size:23px}
+ #reportResult .stat{padding:10px 8px}
+ .calendar-grid button{min-height:35px;padding:6px 0;font-size:12px}
+ #settingsView .pill{padding:9px 11px;font-size:13px}
+}
+
 </style></head>
 <body><main class="app">
 <header class="top"><div><div class="eyebrow">FOOD · BODY · NOTES</div><div class="brand">我的食物日記</div><div class="sub">先好好記錄，之後再一起回看。</div></div><button class="iconbtn" id="settingsBtn" aria-label="显示设置">⚙️ 设置</button></header>
