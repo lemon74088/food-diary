@@ -256,19 +256,43 @@ function dayDiff(a,b){return Math.round((new Date(b+'T12:00:00')-new Date(a+'T12
 function makeSummaryDoc(body,start,end){
  return `<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>飲食與身體事件摘要</title><style>body{font:16px/1.7 -apple-system,sans-serif;max-width:800px;margin:24px auto;padding:0 16px;color:#242922}.reportbox{border:1px solid #ddd;border-radius:14px;padding:16px;margin:14px 0}.statrow{display:flex;gap:10px}.stat{background:#f2f3ec;padding:12px;border-radius:10px;flex:1}.stat b{display:block;font-size:22px}.hint{color:#666;font-size:13px}</style><h1>飲食與身體事件摘要</h1><p>記錄期間：${fmtDate(start)} 至 ${fmtDate(end)}</p>${body}</html>`;
 }
+function makePlainDoctorSummary(backupData,start,end){
+ const meals=(backupData.meals||[]).slice().sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+ const events=(backupData.events||[]).slice().sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+ const lines=[
+  '飲食與身體事件摘要',
+  `記錄期間：${fmtDate(start)} 至 ${fmtDate(end)}（共 ${dayDiff(start,end)} 天）`,
+  '',
+  '一、飲食記錄',
+  `總筆數：${meals.length} 筆`,
+  `照片數量：${meals.reduce((n,m)=>n+(m.photos?.length||0),0)} 張`
+ ];
+ if(meals.length){
+  meals.forEach(m=>{
+   const details=[m.foodName||'',m.notes||''].filter(Boolean).join('；');
+   lines.push(`- ${m.date||''} · ${m.mealType||'飲食'}${details?'：'+details:''}${m.photos?.length?`（${m.photos.length} 張照片，原圖未附在郵件內文）`:''}`);
+  });
+ }else lines.push('這段期間沒有飲食記錄。');
+ lines.push('', '二、身體事件', `總筆數：${events.length} 筆`);
+ if(events.length) events.forEach(e=>lines.push(`- ${e.date||''} · ${e.period||''}：${e.description||''}`));
+ else lines.push('這段期間沒有身體事件記錄。');
+ lines.push('', '說明：本摘要僅整理使用者自行記錄的內容，不代表醫療診斷。若需要查看原始照片，請另外匯出完整資料。');
+ return lines.join('\n');
+}
 async function shareDoctorFiles(summaryDoc,backupData,start,end){
- const summaryFile=new File([summaryDoc],`飲食與身體事件摘要_${start}_${end}.html`,{type:'text/html;charset=utf-8'});
- const backupFile=new File([JSON.stringify(backupData)],`日記資料_${start}_${end}.json`,{type:'application/json'});
- if(navigator.share&&navigator.canShare&&navigator.canShare({files:[summaryFile,backupFile]})){
+ const summaryText=makePlainDoctorSummary(backupData,start,end);
+ if(navigator.share){
   try{
-   await navigator.share({files:[summaryFile,backupFile],title:'飲食與身體事件記錄',text:`請查閱附件：醫師閱讀摘要及含照片的完整記錄（${start} 至 ${end}）。`});
-   toast('已開啟分享選單，請選擇「郵件」並確認寄送');
+   await navigator.share({title:`飲食與身體事件摘要 ${start} 至 ${end}`,text:summaryText});
+   toast('已開啟分享選單；選擇郵件後，摘要文字會放在郵件內文，請確認後寄送');
    return;
   }catch(err){if(err&&err.name==='AbortError')return;}
  }
- downloadBlob(new Blob([summaryDoc],{type:'text/html;charset=utf-8'}),summaryFile.name);
- downloadBlob(new Blob([JSON.stringify(backupData)],{type:'application/json'}),backupFile.name);
- toast('此瀏覽器未支援直接分享附件，已改為匯出兩個檔案');
+ if(navigator.clipboard&&navigator.clipboard.writeText){
+  try{await navigator.clipboard.writeText(summaryText);toast('摘要已複製，請貼到郵件內文；完整照片資料可另外匯出');return;}catch(e){}
+ }
+ downloadBlob(new Blob([summaryText],{type:'text/plain;charset=utf-8'}),`doctor-summary-${start}-${end}.txt`);
+ toast('已匯出可直接閱讀的文字摘要；完整照片資料請另外匯出');
 }
 async function buildReport(){
  let start=$('rangeStart').value,end=$('rangeEnd').value;
@@ -291,7 +315,7 @@ async function buildReport(){
  const makeBackup=async()=>{let data=await toDataObject();data.meals=data.meals.filter(x=>x.date>=start&&x.date<=end);data.events=data.events.filter(x=>x.date>=start&&x.date<=end);return data};
  $('exportSummary').onclick=()=>{let doc=makeSummaryDoc(summaryBody(),start,end);downloadBlob(new Blob([doc],{type:'text/html;charset=utf-8'}),`飲食與身體事件摘要_${start}_${end}.html`);toast('已匯出摘要')};
  $('exportRangeBackup').onclick=async()=>{let data=await makeBackup();downloadBlob(new Blob([JSON.stringify(data)],{type:'application/json'}),`日記資料_${start}_${end}.json`);toast('已匯出完整資料')};
- $('shareDoctor').onclick=async()=>{try{const body=summaryBody();showModal('傳送前預覽',`<div class="hint" style="margin-bottom:12px">請先確認日期、飲食與身體事件內容，再選擇傳送方式。照片會放在完整資料備份附件中。</div><div class="preview-report">${body}</div><div class="reportbox" style="background:linear-gradient(135deg,#edf4e8,#fff8ec)"><h3>📨 選擇傳送方式</h3><p>可開啟 iPhone 分享選單傳送給醫師，或分別匯出摘要與完整資料。</p><button class="primary" style="width:100%;margin-bottom:8px" id="confirmShareDoctor">📤 開啟分享／郵件選單</button><button class="secondary" style="width:100%;margin-bottom:8px" id="previewExportSummary">📄 只匯出閱讀摘要</button><button class="secondary" style="width:100%" id="previewExportBackup">🗂️ 匯出完整資料（含照片）</button></div>`,()=>{$('confirmShareDoctor').onclick=async()=>{try{const data=await makeBackup();const doc=makeSummaryDoc(body,start,end);closeModal();await shareDoctorFiles(doc,data,start,end)}catch(err){toast('產生附件失敗，請稍後再試')}};$('previewExportSummary').onclick=()=>{const doc=makeSummaryDoc(body,start,end);downloadBlob(new Blob([doc],{type:'text/html;charset=utf-8'}),`飲食與身體事件摘要_${start}_${end}.html`);toast('已匯出摘要')};$('previewExportBackup').onclick=async()=>{const data=await makeBackup();downloadBlob(new Blob([JSON.stringify(data)],{type:'application/json'}),`日記資料_${start}_${end}.json`);toast('已匯出完整資料')}})}catch(err){toast('產生預覽失敗，請稍後再試')}};
+ $('shareDoctor').onclick=async()=>{try{const body=summaryBody();showModal('傳送前預覽',`<div class="hint" style="margin-bottom:12px">請先確認日期、飲食與身體事件內容，再選擇傳送方式。郵件內文會直接放入可閱讀的文字摘要；原始照片請另外匯出完整資料。</div><div class="preview-report">${body}</div><div class="reportbox" style="background:linear-gradient(135deg,#edf4e8,#fff8ec)"><h3>📨 選擇傳送方式</h3><p>選擇郵件時，摘要會直接放在郵件內文，不再附上無法直接閱讀的 HTML 摘要檔。原始照片與完整資料可另外匯出。</p><button class="primary" style="width:100%;margin-bottom:8px" id="confirmShareDoctor">📨 寄送可直接閱讀的摘要</button><button class="secondary" style="width:100%;margin-bottom:8px" id="previewExportSummary">📄 匯出文字摘要</button><button class="secondary" style="width:100%" id="previewExportBackup">🗂️ 匯出完整資料（含照片）</button></div>`,()=>{$('confirmShareDoctor').onclick=async()=>{try{const data=await makeBackup();const doc=makeSummaryDoc(body,start,end);closeModal();await shareDoctorFiles(doc,data,start,end)}catch(err){toast('產生附件失敗，請稍後再試')}};$('previewExportSummary').onclick=async()=>{const data=await makeBackup();const txt=makePlainDoctorSummary(data,start,end);downloadBlob(new Blob([txt],{type:'text/plain;charset=utf-8'}),`doctor-summary-${start}-${end}.txt`);toast('已匯出可直接閱讀的文字摘要')};$('previewExportBackup').onclick=async()=>{const data=await makeBackup();downloadBlob(new Blob([JSON.stringify(data)],{type:'application/json'}),`日記資料_${start}_${end}.json`);toast('已匯出完整資料')}})}catch(err){toast('產生預覽失敗，請稍後再試')}};
 }
 
 let mainPage='home',recordFilter='all',calendarMonth=new Date();
